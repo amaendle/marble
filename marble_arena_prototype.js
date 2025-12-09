@@ -2444,6 +2444,8 @@ dot.style.transform = `translate(-50%, -50%) translate(${tiltForce.x * maxOffset
         }
         for (let i = 0; i < cpuBodies.length; i++) {
           if (health.cpu[i] <= 0) {
+            const color = cpuMarbles[i].material.color.getHex();
+            const body = cpuBodies[i];
             createFallParticles(cpuMarbles[i].position, color);
             cpuLives[i]++;
             document.getElementById(`score-cpu-${i}`).textContent = cpuLives[i];
@@ -2453,7 +2455,7 @@ dot.style.transform = `translate(-50%, -50%) translate(${tiltForce.x * maxOffset
             if (cpuLives[i] < maxlives) {
               respawn(body, x, z);
             }
-            
+
           } else if (health.cpu[i] <= 10) {
             triggerSuddenDeath(cpuMarbles[i], cpuBodies[i], false, i);
           }

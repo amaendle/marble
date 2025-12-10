@@ -2034,8 +2034,8 @@ function addKillFeedMessage(msg) {
   while (feed.children.length > 6) feed.removeChild(feed.lastChild);
 }
 
-function triggerSuddenDeath(entity, body, isPlayer = false, index = null) {
-  if (matchOver) return;
+  function triggerSuddenDeath(entity, body, isPlayer = false, index = null) {
+    if (matchOver) return;
   
   if (isPlayer) {
     const label = document.getElementById('sudden-death-label');
@@ -2123,8 +2123,45 @@ function triggerSuddenDeath(entity, body, isPlayer = false, index = null) {
     }, 30);
   }
 
-  console.log(isPlayer ? 'SUDDEN DEATH MODE triggered! Life lost.' : `CPU ${index} enters SUDDEN DEATH MODE!`);
-}
+    console.log(isPlayer ? 'SUDDEN DEATH MODE triggered! Life lost.' : `CPU ${index} enters SUDDEN DEATH MODE!`);
+  }
+
+  function updateHealthStates() {
+    if (matchOver) return;
+
+    if (health.player <= 0) {
+      createFallParticles(marble.position, 0xff3333);
+      marbleLives++;
+      document.getElementById('score-lives').textContent = marbleLives;
+      addKillFeedMessage(`Player died! Lives lost: ${marbleLives}`);
+      if (marbleLives < maxlives) {
+        respawn(marbleBody);
+        health.player = 100;
+        document.getElementById('player-health-bar').style.width = '100%';
+      }
+    } else if (health.player <= 10) {
+      triggerSuddenDeath(marble, marbleBody, true);
+    }
+
+    for (let i = 0; i < cpuBodies.length; i++) {
+      if (health.cpu[i] <= 0) {
+        const color = cpuMarbles[i].material.color.getHex();
+        const body = cpuBodies[i];
+        createFallParticles(cpuMarbles[i].position, color);
+        cpuLives[i]++;
+        document.getElementById(`score-cpu-${i}`).textContent = cpuLives[i];
+        addKillFeedMessage(`CPU ${i + 1} died! Lives lost: ${cpuLives[i]}`);
+        const x = Math.random() * 20 - 10;
+        const z = Math.random() * 20 - 10;
+        if (cpuLives[i] < maxlives) {
+          respawn(body, x, z);
+          health.cpu[i] = 100;
+        }
+      } else if (health.cpu[i] <= 10) {
+        triggerSuddenDeath(cpuMarbles[i], cpuBodies[i], false, i);
+      }
+    }
+  }
 
 function restartGame() {
   // Reset game state
@@ -2236,6 +2273,7 @@ dot.style.transform = `translate(-50%, -50%) translate(${tiltForce.x * maxOffset
       handleInput();
       updateCPU();
       world.step(1 / 60);
+      updateHealthStates();
       water.material.uniforms['time'].value += 1.0 / 60.0;
 
       // Out-of-bounds check
@@ -2428,37 +2466,6 @@ dot.style.transform = `translate(-50%, -50%) translate(${tiltForce.x * maxOffset
           world.removeBody(proj.body);
           scene.remove(proj.mesh);
           return false;
-        }
-        
-        if (health.player <= 0) {
-          createFallParticles(marble.position, 0xff3333);
-          marbleLives++;
-          document.getElementById('score-lives').textContent = marbleLives;
-          addKillFeedMessage(`Player died! Lives lost: ${marbleLives}`);
-          if (marbleLives < maxlives) {
-            respawn(marbleBody);
-          }
-          
-        } else if (health.player <= 10) {
-          triggerSuddenDeath(marble, marbleBody, true);
-        }
-        for (let i = 0; i < cpuBodies.length; i++) {
-          if (health.cpu[i] <= 0) {
-            const color = cpuMarbles[i].material.color.getHex();
-            const body = cpuBodies[i];
-            createFallParticles(cpuMarbles[i].position, color);
-            cpuLives[i]++;
-            document.getElementById(`score-cpu-${i}`).textContent = cpuLives[i];
-            addKillFeedMessage(`CPU ${i + 1} died! Lives lost: ${cpuLives[i]}`);
-            const x = Math.random() * 20 - 10;
-            const z = Math.random() * 20 - 10;
-            if (cpuLives[i] < maxlives) {
-              respawn(body, x, z);
-            }
-
-          } else if (health.cpu[i] <= 10) {
-            triggerSuddenDeath(cpuMarbles[i], cpuBodies[i], false, i);
-          }
         }
         return true;
       });

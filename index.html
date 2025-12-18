@@ -1,6 +1,7 @@
 <html>
   <head>
-  <link rel="stylesheet" href="style.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+    <link rel="stylesheet" href="style.css">
   </head>
   <body>
 <!-- Import maps polyfill -->
@@ -30,10 +31,13 @@
   ⚠️ SUDDEN DEATH MODE ⚠️
 </div>
 
-  <div id="mobile-buttons" style="display:none">
-    <button class="btn-mobile" id="btn-fire">Fire</button>
-    <button class="btn-mobile" id="btn-dash">Dash</button>
-    <button class="btn-mobile" id="btn-jump">Jump</button>
+  <div id="mobile-ui" style="display:none">
+    <div id="mobile-buttons">
+      <button class="btn-mobile" id="btn-fire">Fire</button>
+      <button class="btn-mobile" id="btn-dash">Dash</button>
+      <button class="btn-mobile" id="btn-jump">Jump</button>
+    </div>
+    <button class="btn-mobile btn-mobile-secondary" id="btn-fullscreen">Fullscreen</button>
   </div>
   <div id="tilt-indicator"><div id="tilt-dot"></div></div>
  <div id="hud">

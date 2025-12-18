@@ -185,9 +185,13 @@ const cannonDebugger = CannonDebugger(scene, world, {
     }
 
     if (isMobileDevice()) {
-      document.getElementById('mobile-buttons').style.display = 'flex';
+      const mobileUi = document.getElementById('mobile-ui');
+      if (mobileUi) mobileUi.style.display = 'flex';
+
       const btnDash = document.getElementById('btn-dash');
       const btnJump = document.getElementById('btn-jump');
+      const btnFullscreen = document.getElementById('btn-fullscreen');
+
       btnDash.addEventListener('touchstart', () => {
         keys[' '] = true;
         if (navigator.vibrate) navigator.vibrate([300]);
@@ -203,6 +207,28 @@ const cannonDebugger = CannonDebugger(scene, world, {
         fireProjectile();
         if (navigator.vibrate) navigator.vibrate(15);
       });
+
+      const requestFullscreen = () => {
+        const elem = document.documentElement;
+        const request = elem.requestFullscreen || elem.webkitRequestFullscreen || elem.msRequestFullscreen;
+        if (!document.fullscreenElement && request) {
+          request.call(elem);
+        } else if (document.exitFullscreen) {
+          document.exitFullscreen();
+        }
+      };
+
+      const updateFullscreenLabel = () => {
+        if (!btnFullscreen) return;
+        btnFullscreen.textContent = document.fullscreenElement ? 'Exit Fullscreen' : 'Fullscreen';
+      };
+
+        if (btnFullscreen) {
+          const tapHandler = (e) => { e.preventDefault(); requestFullscreen(); };
+          btnFullscreen.addEventListener('pointerup', tapHandler, { passive: false });
+          document.addEventListener('fullscreenchange', updateFullscreenLabel);
+          updateFullscreenLabel();
+        }
     }
     setupCollisionDetection();
     setupProjectileSystem();

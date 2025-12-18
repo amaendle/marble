@@ -47,6 +47,40 @@ const tileSize = 5;
 
 let animationId = null;
 let matchOver = false;
+let wireframeEnabled = false;
+let cannonDebugObjects = [];
+let mobileControlsInitialized = false;
+
+function applyWireframeToMaterial(material, enabled) {
+  if (!material || typeof material !== 'object') return;
+  if (Array.isArray(material)) {
+    material.forEach((mat) => applyWireframeToMaterial(mat, enabled));
+    return;
+  }
+  if ('wireframe' in material) {
+    material.wireframe = enabled;
+    material.needsUpdate = true;
+  }
+}
+
+function applyWireframeToScene(enabled) {
+  if (!scene) return;
+  scene.traverse((obj) => {
+    if (!obj.isMesh) return;
+    applyWireframeToMaterial(obj.material, enabled);
+  });
+}
+
+function setWireframeMode(enabled) {
+  wireframeEnabled = enabled;
+  applyWireframeToScene(enabled);
+  cannonDebugObjects.forEach((obj) => {
+    obj.visible = enabled;
+  });
+  if (enabled && cannonDebugger?.update) {
+    cannonDebugger.update();
+  }
+}
 
 
   const arenaScaling = 5;
@@ -58,10 +92,12 @@ const wallSegments = 16;
 
     init();
 
-
+const preDebuggerObjects = new Set(scene.children);
 const cannonDebugger = CannonDebugger(scene, world, {
   color: 0xff00ff,
 });
+cannonDebugObjects = scene.children.filter((child) => !preDebuggerObjects.has(child));
+setWireframeMode(false);
 
     // Joystick fallback for tilt control
     if (isMobileDevice()) {
@@ -184,29 +220,40 @@ const cannonDebugger = CannonDebugger(scene, world, {
       }
     }
 
-    if (isMobileDevice()) {
+    function setupMobileControls() {
+      if (mobileControlsInitialized) return;
+      mobileControlsInitialized = true;
+
       const mobileUi = document.getElementById('mobile-ui');
       if (mobileUi) mobileUi.style.display = 'flex';
 
       const btnDash = document.getElementById('btn-dash');
       const btnJump = document.getElementById('btn-jump');
       const btnFullscreen = document.getElementById('btn-fullscreen');
-
-      btnDash.addEventListener('touchstart', () => {
-        keys[' '] = true;
-        if (navigator.vibrate) navigator.vibrate([300]);
-      });
-      btnDash.addEventListener('touchend', () => keys[' '] = false);
-      btnJump.addEventListener('touchstart', () => {
-        keys['Shift'] = true;
-        if (navigator.vibrate) navigator.vibrate([200]);
-      });
-      btnJump.addEventListener('touchend', () => keys['Shift'] = false);
       const btnFire = document.getElementById('btn-fire');
-      btnFire.addEventListener('touchstart', () => {
-        fireProjectile();
-        if (navigator.vibrate) navigator.vibrate(15);
-      });
+
+      if (btnDash) {
+        btnDash.addEventListener('touchstart', () => {
+          keys[' '] = true;
+          if (navigator.vibrate) navigator.vibrate([300]);
+        });
+        btnDash.addEventListener('touchend', () => keys[' '] = false);
+      }
+
+      if (btnJump) {
+        btnJump.addEventListener('touchstart', () => {
+          keys['Shift'] = true;
+          if (navigator.vibrate) navigator.vibrate([200]);
+        });
+        btnJump.addEventListener('touchend', () => keys['Shift'] = false);
+      }
+
+      if (btnFire) {
+        btnFire.addEventListener('touchstart', () => {
+          fireProjectile();
+          if (navigator.vibrate) navigator.vibrate(15);
+        });
+      }
 
       const requestFullscreen = () => {
         const elem = document.documentElement;
@@ -223,13 +270,19 @@ const cannonDebugger = CannonDebugger(scene, world, {
         btnFullscreen.textContent = document.fullscreenElement ? 'Exit Fullscreen' : 'Fullscreen';
       };
 
-        if (btnFullscreen) {
-          const tapHandler = (e) => { e.preventDefault(); requestFullscreen(); };
-          btnFullscreen.addEventListener('pointerup', tapHandler, { passive: false });
-          document.addEventListener('fullscreenchange', updateFullscreenLabel);
-          updateFullscreenLabel();
-        }
+      if (btnFullscreen) {
+        const tapHandler = (e) => { e.preventDefault(); requestFullscreen(); };
+        btnFullscreen.addEventListener('pointerup', tapHandler, { passive: false });
+        document.addEventListener('fullscreenchange', updateFullscreenLabel);
+        updateFullscreenLabel();
+      }
     }
+
+    if (isMobileDevice()) {
+      setupMobileControls();
+    }
+
+    window.addEventListener('touchstart', () => setupMobileControls(), { once: true });
     setupCollisionDetection();
     setupProjectileSystem();
     animate();
@@ -1941,7 +1994,13 @@ scene.add(fillerPanels);
   }
 
   window.addEventListener('resize', onWindowResize);
-  window.addEventListener('keydown', (e) => keys[e.key] = true);
+  window.addEventListener('keydown', (e) => {
+    if ((e.key === 'w' || e.key === 'W') && !e.repeat) {
+      setWireframeMode(!wireframeEnabled);
+      return;
+    }
+    keys[e.key] = true;
+  });
   window.addEventListener('keyup', (e) => keys[e.key] = false);
 }
 
@@ -2504,7 +2563,12 @@ dot.style.transform = `translate(-50%, -50%) translate(${tiltForce.x * maxOffset
       matchOver = true;
       cancelAnimationFrame(animationId); // stop the loop 
     }  
-      cannonDebugger.update();
+      if (wireframeEnabled) {
+        applyWireframeToScene(true);
+      }
+      if (wireframeEnabled && cannonDebugger?.update) {
+        cannonDebugger.update();
+      }
       renderer.render(scene, camera);
     }
 

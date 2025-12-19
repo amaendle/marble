@@ -220,8 +220,9 @@ setWireframeMode(false);
       const normX = Math.max(-1, Math.min(1, event.gamma / maxTilt)) * scale;
       const normZ = Math.max(-1, Math.min(1, event.beta / maxTilt)) * scale;
 
-      // Rotate tilt based on current screen orientation so landscape behaves correctly
-      const angle = getScreenOrientationAngle() * (Math.PI / 180);
+      // Only flip controls when the device is upside-down; portrait and landscape use the same axes
+      const orientation = ((getScreenOrientationAngle() % 360) + 360) % 360;
+      const angle = orientation === 180 ? Math.PI : 0;
       const cos = Math.cos(angle);
       const sin = Math.sin(angle);
       tiltForce.x = normX * cos - normZ * sin;

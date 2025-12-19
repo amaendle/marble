@@ -16,27 +16,6 @@ canvas { display: block; }
   animation: lowflash 0.5s steps(1) infinite;
 }
 
-#scoreboard {
-  position: fixed;
-  top: 10px;
-  right: 10px;
-  background: rgba(0, 0, 0, 0.6);
-  color: white;
-  padding: 10px;
-  font-family: sans-serif;
-  font-size: 14px;
-  border-radius: 6px;
-  z-index: 10;
-  max-width: 260px;
-  max-height: calc(100vh - 20px);
-  overflow-y: auto;
-  box-sizing: border-box;
-}
-
-#kill-feed {
-  max-height: 100px;
-  overflow-y: auto;
-}
 .cpu-label {
   position: absolute;
   font-family: sans-serif;
@@ -202,14 +181,4 @@ z-index: 1;
     height: 52px;
   }
 
-  #scoreboard {
-    left: 10px;
-    right: auto;
-    font-size: 12px;
-    max-width: 70vw;
-  }
-
-  #kill-feed {
-    max-height: 70px;
-  }
 }

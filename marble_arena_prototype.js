@@ -54,6 +54,8 @@ let mobileControlsInitialized = false;
 const DEBUG_MODE = true;
 let wireframeToggleButton = null;
 let waterToggleButton = null;
+let cannonDebugger = null;
+let preDebuggerObjects = null;
 
 function applyWireframeToMaterial(material, enabled) {
   if (!material || typeof material !== 'object') return;
@@ -107,14 +109,15 @@ const wallHeightUnit = arenaScaling*0.4;
 //const innerRadius = arenaRadius - arenaScaling*0.01;
 const wallSegments = 16;
 
-    init();
+    function startGame() {
+      init();
 
-const preDebuggerObjects = new Set(scene.children);
-const cannonDebugger = CannonDebugger(scene, world, {
-  color: 0xff00ff,
-});
-cannonDebugObjects = scene.children.filter((child) => !preDebuggerObjects.has(child));
-setWireframeMode(false);
+      preDebuggerObjects = new Set(scene.children);
+      cannonDebugger = CannonDebugger(scene, world, {
+        color: 0xff00ff,
+      });
+      cannonDebugObjects = scene.children.filter((child) => !preDebuggerObjects.has(child));
+      setWireframeMode(false);
 
     // Joystick fallback for tilt control
     if (isMobileDevice()) {
@@ -2076,6 +2079,10 @@ scene.add(fillerPanels);
   });
   window.addEventListener('keyup', (e) => keys[e.key] = false);
 }
+
+document.addEventListener('DOMContentLoaded', () => {
+  startGame();
+});
 
 
 

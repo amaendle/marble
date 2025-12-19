@@ -203,11 +203,29 @@ setWireframeMode(false);
     projectiles.push({ body, mesh, age: 0 });
   }
 
+    function getScreenOrientationAngle() {
+      if (typeof screen !== 'undefined' && screen.orientation && typeof screen.orientation.angle === 'number') {
+        return screen.orientation.angle;
+      }
+      if (typeof window.orientation === 'number') {
+        return window.orientation;
+      }
+      return 0;
+    }
+
     function handleOrientation(event) {
       const maxTilt = 30;
       const scale = 1; //10 / maxTilt;
-      tiltForce.x = Math.max(-1, Math.min(1, event.gamma / maxTilt)) * scale;
-      tiltForce.z = Math.max(-1, Math.min(1, event.beta / maxTilt)) * scale;
+
+      const normX = Math.max(-1, Math.min(1, event.gamma / maxTilt)) * scale;
+      const normZ = Math.max(-1, Math.min(1, event.beta / maxTilt)) * scale;
+
+      // Rotate tilt based on current screen orientation so landscape behaves correctly
+      const angle = getScreenOrientationAngle() * (Math.PI / 180);
+      const cos = Math.cos(angle);
+      const sin = Math.sin(angle);
+      tiltForce.x = normX * cos - normZ * sin;
+      tiltForce.z = normX * sin + normZ * cos;
     }
 
     if (isMobileDevice()) {
@@ -1941,7 +1959,7 @@ scene.add(fillerPanels);
 
   // Player Marble
   const ballRadius = 1;
-  const marbleGeometry = new THREE.SphereGeometry(ballRadius, 0.25*32, 0.25*32);
+  const marbleGeometry = new THREE.IcosahedronGeometry(ballRadius, 1);
   const marbleMaterial = new THREE.MeshStandardMaterial({ color: 0xff3333 });
   marble = new THREE.Mesh(marbleGeometry, marbleMaterial);
   marble.castShadow = true;

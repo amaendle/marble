@@ -48,8 +48,12 @@ const tileSize = 5;
 let animationId = null;
 let matchOver = false;
 let wireframeEnabled = false;
+let waterEnabled = true;
 let cannonDebugObjects = [];
 let mobileControlsInitialized = false;
+const DEBUG_MODE = true;
+let wireframeToggleButton = null;
+let waterToggleButton = null;
 
 function applyWireframeToMaterial(material, enabled) {
   if (!material || typeof material !== 'object') return;
@@ -79,6 +83,19 @@ function setWireframeMode(enabled) {
   });
   if (enabled && cannonDebugger?.update) {
     cannonDebugger.update();
+  }
+  if (wireframeToggleButton) {
+    wireframeToggleButton.textContent = `Wireframe: ${enabled ? 'On' : 'Off'}`;
+  }
+}
+
+function setWaterVisible(enabled) {
+  waterEnabled = enabled;
+  if (water) {
+    water.visible = enabled;
+  }
+  if (waterToggleButton) {
+    waterToggleButton.textContent = `Water: ${enabled ? 'On' : 'Off'}`;
   }
 }
 
@@ -239,6 +256,32 @@ setWireframeMode(false);
       }
     }
 
+    function toggleFullscreen() {
+      const elem = document.documentElement;
+      const request = elem.requestFullscreen || elem.webkitRequestFullscreen || elem.msRequestFullscreen;
+      if (!document.fullscreenElement && request) {
+        request.call(elem);
+      } else if (document.exitFullscreen) {
+        document.exitFullscreen();
+      }
+    }
+
+    function updateFullscreenLabels() {
+      document.querySelectorAll('#btn-fullscreen').forEach((btn) => {
+        btn.textContent = document.fullscreenElement ? 'Exit Fullscreen' : 'Fullscreen';
+      });
+    }
+
+    function attachFullscreenHandlers(button) {
+      if (!button || button.dataset.fullscreenBound) return;
+      const handler = (e) => { e.preventDefault(); toggleFullscreen(); };
+      button.addEventListener('click', handler, { passive: false });
+      button.dataset.fullscreenBound = 'true';
+      updateFullscreenLabels();
+    }
+
+    document.addEventListener('fullscreenchange', updateFullscreenLabels);
+
     function setupMobileControls() {
       if (mobileControlsInitialized) return;
       mobileControlsInitialized = true;
@@ -273,27 +316,36 @@ setWireframeMode(false);
           if (navigator.vibrate) navigator.vibrate(15);
         });
       }
+      attachFullscreenHandlers(btnFullscreen);
+    }
 
-      const requestFullscreen = () => {
-        const elem = document.documentElement;
-        const request = elem.requestFullscreen || elem.webkitRequestFullscreen || elem.msRequestFullscreen;
-        if (!document.fullscreenElement && request) {
-          request.call(elem);
-        } else if (document.exitFullscreen) {
-          document.exitFullscreen();
+    function setupDebugControls() {
+      wireframeToggleButton = document.getElementById('btn-wireframe');
+      waterToggleButton = document.getElementById('btn-water-toggle');
+
+      const fullscreenButton = document.getElementById('btn-fullscreen');
+
+      if (wireframeToggleButton) {
+        wireframeToggleButton.addEventListener('click', () => setWireframeMode(!wireframeEnabled));
+        wireframeToggleButton.textContent = `Wireframe: ${wireframeEnabled ? 'On' : 'Off'}`;
+      }
+
+      if (waterToggleButton) {
+        waterToggleButton.addEventListener('click', () => setWaterVisible(!waterEnabled));
+        waterToggleButton.textContent = `Water: ${waterEnabled ? 'On' : 'Off'}`;
+      }
+
+      if (fullscreenButton && DEBUG_MODE) {
+        fullscreenButton.style.display = 'inline-block';
+      }
+
+      attachFullscreenHandlers(fullscreenButton);
+
+      if (DEBUG_MODE) {
+        const debugControls = document.getElementById('debug-controls');
+        if (debugControls) {
+          debugControls.style.display = 'flex';
         }
-      };
-
-      const updateFullscreenLabel = () => {
-        if (!btnFullscreen) return;
-        btnFullscreen.textContent = document.fullscreenElement ? 'Exit Fullscreen' : 'Fullscreen';
-      };
-
-      if (btnFullscreen) {
-        const tapHandler = (e) => { e.preventDefault(); requestFullscreen(); };
-        btnFullscreen.addEventListener('pointerup', tapHandler, { passive: false });
-        document.addEventListener('fullscreenchange', updateFullscreenLabel);
-        updateFullscreenLabel();
       }
     }
 
@@ -304,6 +356,7 @@ setWireframeMode(false);
     window.addEventListener('touchstart', () => setupMobileControls(), { once: true });
     setupCollisionDetection();
     setupProjectileSystem();
+    setupDebugControls();
     animate();
 
     function createDashEffect(position, color = 0xffffff) {
@@ -429,7 +482,7 @@ controls.target.set(0, 0, 0);
 controls.minPolarAngle = 0;                  // you may look straight down
 controls.maxPolarAngle = Math.PI * 0.5;      // …but never past the horizon
 controls.minDistance   =  2;  // stay at least 2 units away from target
-controls.maxDistance   = 40;  // don’t zoom out too far
+controls.maxDistance   = 80;  // don’t zoom out too far
 //controls.screenSpacePanning = false; // pan parallel to world-XY instead of sreen plane 
 controls.enablePan           = false;
 controls.update();
@@ -485,6 +538,7 @@ water.rotation.x = -Math.PI / 2;
 water.position.y = -0.05;
 
 scene.add(water);
+setWaterVisible(true);
 //--------------------------------------------------------------------
 // FOAM / Gischt an Mauerkanten --------------------------------------
 //--------------------------------------------------------------------
@@ -2378,7 +2432,9 @@ dot.style.transform = `translate(-50%, -50%) translate(${tiltForce.x * maxOffset
       updateCPU();
       world.step(1 / 60);
       updateHealthStates();
-      water.material.uniforms['time'].value += 1.0 / 60.0;
+      if (waterEnabled && water) {
+        water.material.uniforms['time'].value += 1.0 / 60.0;
+      }
 
       // Out-of-bounds check
       if (marbleBody.position.y < -5 && marbleLives < maxlives) {

@@ -2383,7 +2383,9 @@ function showMatchSummary() {
   });
 }
 
-function animate() {
+  }
+
+  function animate() {
   if (isMobileDevice()) {
     const indicator = document.getElementById('tilt-indicator');
     const dot = document.getElementById('tilt-dot');
@@ -2832,3 +2834,4 @@ dot.style.transform = `translate(-50%, -50%) translate(${tiltForce.x * maxOffset
       camera.updateProjectionMatrix();
       renderer.setSize(window.innerWidth, window.innerHeight);
     }
+}

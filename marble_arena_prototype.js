@@ -1,13 +1,13 @@
 // marble_arena_prototype.js
 
-import * as THREE from 'three';
+import * as THREE from 'https://unpkg.com/three@0.174.0/build/three.module.js';
 import {
   OrbitControls
-} from 'three/examples/jsm/controls/OrbitControls.js';
-import * as CANNON from 'cannon-es';
-import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { Water } from 'three/examples/jsm/objects/Water.js';
-import CannonDebugger from 'cannon-es-debugger';
+} from 'https://unpkg.com/three@0.174.0/examples/jsm/controls/OrbitControls.js';
+import * as CANNON from 'https://unpkg.com/cannon-es@0.20.0/dist/cannon-es.js';
+import * as BufferGeometryUtils from 'https://unpkg.com/three@0.174.0/examples/jsm/utils/BufferGeometryUtils.js';
+import { Water } from 'https://unpkg.com/three@0.174.0/examples/jsm/objects/Water.js';
+import CannonDebugger from 'https://cdn.skypack.dev/cannon-es-debugger';
 
 // load music
 const listener = new THREE.AudioListener();

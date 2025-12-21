@@ -249,13 +249,46 @@ const wallSegments = 16;
       tiltForce.z = normX * sin + normZ * cos;
     }
 
-    if (isMobileDevice()) {
-      if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-        DeviceOrientationEvent.requestPermission().then(state => {
-          if (state === 'granted') window.addEventListener('deviceorientation', handleOrientation);
-        }).catch(console.error);
-      } else {
+    function requestTiltAccess() {
+      if (!isMobileDevice()) return;
+
+      const addListener = () => {
         window.addEventListener('deviceorientation', handleOrientation);
+        const prompt = document.getElementById('tilt-permission');
+        if (prompt) prompt.style.display = 'none';
+      };
+
+      if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+        DeviceOrientationEvent.requestPermission()
+          .then((state) => {
+            if (state === 'granted') {
+              addListener();
+            } else {
+              const prompt = document.getElementById('tilt-permission');
+              if (prompt) prompt.style.display = 'flex';
+            }
+          })
+          .catch(() => {
+            const prompt = document.getElementById('tilt-permission');
+            if (prompt) prompt.style.display = 'flex';
+          });
+      } else {
+        addListener();
+      }
+    }
+
+    if (isMobileDevice()) {
+      requestTiltAccess();
+      const prompt = document.getElementById('tilt-permission');
+      if (prompt) {
+        prompt.style.display = 'flex';
+        const button = prompt.querySelector('button');
+        if (button) {
+          button.addEventListener('click', (e) => {
+            e.preventDefault();
+            requestTiltAccess();
+          });
+        }
       }
     }
 
@@ -2436,7 +2469,7 @@ dot.style.transform = `translate(-50%, -50%) translate(${tiltForce.x * maxOffset
   } else {
     marble.material.emissiveIntensity = 0;
   }
-      requestAnimationFrame(animate);
+      animationId = requestAnimationFrame(animate);
       handleInput();
       updateCPU();
       world.step(1 / 60);

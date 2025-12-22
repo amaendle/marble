@@ -205,33 +205,63 @@ const wallSegments = 16;
       setWireframeMode(false);
 
     // Joystick fallback for tilt control
-    if (isMobileDevice()) {
+    let joystickInitialized = false;
+    function setupJoystickFallback() {
+      if (joystickInitialized) return;
       const indicator = document.getElementById('tilt-indicator');
+      if (!indicator) return;
+      joystickInitialized = true;
+
       let rect, centerX, centerY;
       window.joystickVector = { x: 0, z: 0 };
       window.joystickActive = false;
 
-      const updateJoystick = (e) => {
-        const touch = e.touches[0];
-        const dx = touch.clientX - centerX;
-        const dy = touch.clientY - centerY;
+      const updateJoystickFromPoint = (clientX, clientY) => {
+        const dx = clientX - centerX;
+        const dy = clientY - centerY;
         const maxRange = 40; // pixels
         const normX = Math.max(-1, Math.min(1, dx / maxRange));
         const normZ = Math.max(-1, Math.min(1, dy / maxRange));
-        window.joystickVector = { x: normX * 1, z: normZ * 1 };
+        window.joystickVector = { x: normX, z: normZ };
         window.joystickActive = true;
       };
 
-      indicator.addEventListener('touchstart', (e) => {
+      const updateJoystickFromTouch = (e) => {
+        const touch = e.touches[0];
+        if (!touch) return;
+        updateJoystickFromPoint(touch.clientX, touch.clientY);
+      };
+
+      const beginInteraction = (clientX, clientY) => {
         rect = indicator.getBoundingClientRect();
         centerX = rect.left + rect.width / 2;
         centerY = rect.top + rect.height / 2;
-        updateJoystick(e);
+        updateJoystickFromPoint(clientX, clientY);
+      };
+
+      indicator.addEventListener('touchstart', (e) => {
+        const touch = e.touches[0];
+        if (!touch) return;
+        beginInteraction(touch.clientX, touch.clientY);
       });
-      indicator.addEventListener('touchmove', updateJoystick);
+      indicator.addEventListener('touchmove', updateJoystickFromTouch);
       indicator.addEventListener('touchend', () => {
         window.joystickActive = false;
         window.joystickVector = { x: 0, z: 0 };
+      });
+
+      indicator.addEventListener('mousedown', (e) => {
+        beginInteraction(e.clientX, e.clientY);
+        const moveHandler = (moveEvent) => updateJoystickFromPoint(moveEvent.clientX, moveEvent.clientY);
+        const endHandler = () => {
+          window.removeEventListener('mousemove', moveHandler);
+          window.removeEventListener('mouseup', endHandler);
+          window.joystickActive = false;
+          window.joystickVector = { x: 0, z: 0 };
+        };
+
+        window.addEventListener('mousemove', moveHandler);
+        window.addEventListener('mouseup', endHandler, { once: true });
       });
     }
 
@@ -396,14 +426,20 @@ const wallSegments = 16;
       window.addEventListener(
         'touchstart',
         () => {
+          setupJoystickFallback();
           requestTiltAccess(true);
           setupMobileControls();
         },
         { once: true }
       );
     } else {
-      window.addEventListener('touchstart', () => setupMobileControls(), { once: true });
+      window.addEventListener('touchstart', () => {
+        setupJoystickFallback();
+        setupMobileControls();
+      }, { once: true });
     }
+
+    setupJoystickFallback();
 
     function toggleFullscreen() {
       const elem = document.documentElement;

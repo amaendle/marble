@@ -92,13 +92,14 @@ canvas { display: block; }
 
 #debug-controls {
   position: fixed;
-  bottom: 20px;
-  right: 20px;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
   display: none;
   flex-direction: row;
   gap: 10px;
   background: rgba(0, 0, 0, 0.5);
-  padding: 8px;
+  padding: 8px 10px;
   border-radius: 10px;
   z-index: 11;
 }

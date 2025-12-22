@@ -54,6 +54,12 @@ let mobileControlsInitialized = false;
 const DEBUG_MODE = true;
 let wireframeToggleButton = null;
 let waterToggleButton = null;
+let preDebuggerObjects;
+
+function refreshCannonDebugObjects() {
+  if (!scene || !preDebuggerObjects) return;
+  cannonDebugObjects = scene.children.filter((child) => !preDebuggerObjects.has(child));
+}
 
 function applyWireframeToMaterial(material, enabled) {
   if (!material || typeof material !== 'object') return;
@@ -77,13 +83,14 @@ function applyWireframeToScene(enabled) {
 
 function setWireframeMode(enabled) {
   wireframeEnabled = enabled;
+  if (enabled && cannonDebugger?.update) {
+    cannonDebugger.update();
+    refreshCannonDebugObjects();
+  }
   applyWireframeToScene(enabled);
   cannonDebugObjects.forEach((obj) => {
     obj.visible = enabled;
   });
-  if (enabled && cannonDebugger?.update) {
-    cannonDebugger.update();
-  }
   if (wireframeToggleButton) {
     wireframeToggleButton.textContent = `Wireframe: ${enabled ? 'On' : 'Off'}`;
   }
@@ -109,11 +116,11 @@ const wallSegments = 16;
 
     init();
 
-const preDebuggerObjects = new Set(scene.children);
+preDebuggerObjects = new Set(scene.children);
 const cannonDebugger = CannonDebugger(scene, world, {
   color: 0xff00ff,
 });
-cannonDebugObjects = scene.children.filter((child) => !preDebuggerObjects.has(child));
+refreshCannonDebugObjects();
 setWireframeMode(false);
 
     // Joystick fallback for tilt control
@@ -2640,9 +2647,14 @@ dot.style.transform = `translate(-50%, -50%) translate(${tiltForce.x * maxOffset
     }  
       if (wireframeEnabled) {
         applyWireframeToScene(true);
-      }
-      if (wireframeEnabled && cannonDebugger?.update) {
-        cannonDebugger.update();
+        if (cannonDebugger?.update) {
+          cannonDebugger.update();
+          refreshCannonDebugObjects();
+        }
+      } else {
+        cannonDebugObjects.forEach((obj) => {
+          obj.visible = false;
+        });
       }
       renderer.render(scene, camera);
     }

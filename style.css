@@ -119,6 +119,7 @@ canvas { display: block; position: fixed; inset: 0; width: 100%; height: 100%; z
   border-radius: 50%;
   background: rgba(0,0,0,0.35);
   border: 2px solid white;
+  z-index: 9;
 }
 #tilt-dot {
   position: absolute;
@@ -177,36 +178,28 @@ canvas { display: block; position: fixed; inset: 0; width: 100%; height: 100%; z
   box-shadow: 0 0 8px rgba(0,0,0,0.3);
   touch-action: none;
 
-    position: relative;
-    overflow: hidden;
+  position: relative;
+  overflow: hidden;
 }
-//*#btn-dash.cooldown {
-  background: rgba(100, 100, 100, 0.5);
-  color: #ccc;
-}
+
+/* Cooldown styling for dash and jump buttons */
+#btn-dash.cooldown,
 #btn-jump.cooldown {
   background: rgba(100, 100, 100, 0.5);
   color: #ccc;
-}**/
-/*#btn-dash {
-  background: conic-gradient(
-    rgba(0, 0, 255, 0.4) calc(var(--progress, 0%) * 1%), 
-    transparent 0%
-  );
-}*/
+}
+
 .btn-mobile::after {
-content: '';
-position: absolute;
-top: 0; left: 0;
-width: 100%; height: 50%;
-border-radius: 50%;
-/*background: rgba(0, 0, 255, 0.3);
-transform: scaleY(1);
-transform-origin: bottom;
-animation-play-state: paused;*/
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 50%;
+  border-radius: 50%;
   background: conic-gradient(rgba(0, 0, 255, 0.4) var(--progress, 0%), transparent 0%);
-pointer-events: none;
-z-index: 1;
+  pointer-events: none;
+  z-index: 1;
 }
 .btn-mobile-secondary {
   width: 110px;

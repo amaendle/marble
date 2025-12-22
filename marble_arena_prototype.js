@@ -6,8 +6,8 @@ import {
 } from 'https://unpkg.com/three@0.174.0/examples/jsm/controls/OrbitControls.js';
 import * as CANNON from 'https://unpkg.com/cannon-es@0.20.0/dist/cannon-es.js';
 import * as BufferGeometryUtils from 'https://unpkg.com/three@0.174.0/examples/jsm/utils/BufferGeometryUtils.js';
-import { Water } from 'https://unpkg.com/three@0.174.0/examples/jsm/objects/Water.js';
-import CannonDebugger from 'https://cdn.skypack.dev/cannon-es-debugger';
+let CannonDebugger = null;
+let WaterClass = null;
 
 // load music
 const listener = new THREE.AudioListener();
@@ -49,6 +49,9 @@ let animationId = null;
 let matchOver = false;
 let wireframeEnabled = false;
 let waterEnabled = true;
+let waterHasTimeUniform = false;
+let waterGeometry = null;
+let waterNormals = null;
 let cannonDebugObjects = [];
 let mobileControlsInitialized = false;
 const DEBUG_MODE = true;
@@ -101,6 +104,84 @@ function setWaterVisible(enabled) {
   }
 }
 
+function createWaterSurface(useShader) {
+  if (!waterGeometry) {
+    waterGeometry = new THREE.PlaneGeometry(30 * arenaScaling, 30 * arenaScaling);
+  }
+
+  if (!waterNormals) {
+    waterNormals = new THREE.TextureLoader().load(
+      'https://threejs.org/examples/textures/waternormals.jpg',
+      (texture) => {
+        texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+      }
+    );
+  }
+
+  if (water) {
+    scene.remove(water);
+  }
+
+  if (useShader && WaterClass) {
+    const directionalLight = scene.getObjectByProperty('type', 'DirectionalLight') ||
+      new THREE.DirectionalLight(0xffffff, 1);
+    if (!directionalLight.parent) {
+      scene.add(directionalLight);
+    }
+    water = new WaterClass(waterGeometry, {
+      textureWidth: 1024,
+      textureHeight: 1024,
+      waterNormals,
+      sunDirection: directionalLight.position.clone().normalize(),
+      sunColor: 0xffffff,
+      waterColor: 0x1e90ff,
+      distortionScale: 4,
+      fog: scene.fog !== undefined,
+    });
+    waterHasTimeUniform = !!water.material?.uniforms?.time;
+  } else {
+    water = new THREE.Mesh(
+      waterGeometry,
+      new THREE.MeshPhongMaterial({ color: 0x1e90ff, transparent: true, opacity: 0.9, shininess: 80 })
+    );
+    water.receiveShadow = true;
+    waterHasTimeUniform = false;
+  }
+
+  water.rotation.x = -Math.PI / 2;
+  water.position.y = -0.05;
+  scene.add(water);
+  setWaterVisible(waterEnabled);
+}
+
+async function loadWaterModuleAndUpgrade() {
+  if (WaterClass) return;
+  try {
+    const module = await import('https://unpkg.com/three@0.174.0/examples/jsm/objects/Water.js');
+    WaterClass = module.Water || module.default;
+    if (scene && water && !waterHasTimeUniform) {
+      createWaterSurface(true);
+    }
+  } catch (err) {
+    console.warn('Falling back to flat water: failed to load Water shader.', err);
+  }
+}
+
+async function loadCannonDebugger() {
+  if (!DEBUG_MODE || CannonDebugger) return;
+  try {
+    const module = await import('https://cdn.skypack.dev/cannon-es-debugger');
+    CannonDebugger = module.default || module;
+    preDebuggerObjects = new Set(scene.children);
+    cannonDebugger = CannonDebugger(scene, world, {
+      color: 0xff00ff,
+    });
+    cannonDebugObjects = scene.children.filter((child) => !preDebuggerObjects.has(child));
+  } catch (err) {
+    console.warn('Cannon debugger unavailable, continuing without it.', err);
+  }
+}
+
 
   const arenaScaling = 5;
   const arenaRadius = arenaScaling*4.1;
@@ -109,14 +190,18 @@ const wallHeightUnit = arenaScaling*0.4;
 //const innerRadius = arenaRadius - arenaScaling*0.01;
 const wallSegments = 16;
 
-    function startGame() {
+    async function startGame() {
       init();
 
-      preDebuggerObjects = new Set(scene.children);
-      cannonDebugger = CannonDebugger(scene, world, {
-        color: 0xff00ff,
-      });
-      cannonDebugObjects = scene.children.filter((child) => !preDebuggerObjects.has(child));
+      const waterModulePromise = loadWaterModuleAndUpgrade();
+      const debuggerPromise = loadCannonDebugger();
+
+      if (DEBUG_MODE) {
+        debuggerPromise?.catch((err) => console.warn('Cannon debugger unavailable, continuing without it.', err));
+      }
+
+      waterModulePromise?.catch((err) => console.warn('Water module failed to load', err));
+
       setWireframeMode(false);
 
     // Joystick fallback for tilt control
@@ -151,9 +236,14 @@ const wallSegments = 16;
     }
 
     let tiltForce = { x: 0, z: 0 };
+    let tiltPermissionRequested = false;
     function isMobileDevice() {
-      //return /Mobi|Android/i.test(navigator.userAgent);
-      return navigator.maxTouchPoints > 0;
+      // Broaden detection to cover more browsers and simulators
+      return (
+        navigator.maxTouchPoints > 0 ||
+        'ontouchstart' in window ||
+        /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+      );
     }
 
   function setupProjectileSystem() {
@@ -249,47 +339,70 @@ const wallSegments = 16;
       tiltForce.z = normX * sin + normZ * cos;
     }
 
-    function requestTiltAccess() {
+    function toggleTiltPrompt(show) {
+      const prompt = document.getElementById('tilt-permission');
+      if (prompt) {
+        prompt.style.display = show ? 'flex' : 'none';
+      }
+    }
+
+    function addTiltListener() {
+      window.addEventListener('deviceorientation', handleOrientation);
+      toggleTiltPrompt(false);
+    }
+
+    function requestTiltAccess(fromUserGesture = false) {
       if (!isMobileDevice()) return;
+      if (tiltPermissionRequested && !fromUserGesture) return;
+      tiltPermissionRequested = true;
 
-      const addListener = () => {
-        window.addEventListener('deviceorientation', handleOrientation);
-        const prompt = document.getElementById('tilt-permission');
-        if (prompt) prompt.style.display = 'none';
-      };
+      const needsPermission =
+        typeof DeviceOrientationEvent !== 'undefined' &&
+        typeof DeviceOrientationEvent.requestPermission === 'function';
 
-      if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+      if (needsPermission) {
+        if (!fromUserGesture) {
+          toggleTiltPrompt(true);
+          return;
+        }
         DeviceOrientationEvent.requestPermission()
           .then((state) => {
             if (state === 'granted') {
-              addListener();
+              addTiltListener();
             } else {
-              const prompt = document.getElementById('tilt-permission');
-              if (prompt) prompt.style.display = 'flex';
+              toggleTiltPrompt(true);
             }
           })
-          .catch(() => {
-            const prompt = document.getElementById('tilt-permission');
-            if (prompt) prompt.style.display = 'flex';
-          });
+          .catch(() => toggleTiltPrompt(true));
       } else {
-        addListener();
+        addTiltListener();
       }
     }
 
     if (isMobileDevice()) {
-      requestTiltAccess();
       const prompt = document.getElementById('tilt-permission');
       if (prompt) {
-        prompt.style.display = 'flex';
+        toggleTiltPrompt(true);
         const button = prompt.querySelector('button');
         if (button) {
           button.addEventListener('click', (e) => {
             e.preventDefault();
-            requestTiltAccess();
+            requestTiltAccess(true);
           });
         }
       }
+      // Attempt to attach listeners on platforms that do not require permission
+      requestTiltAccess(false);
+      window.addEventListener(
+        'touchstart',
+        () => {
+          requestTiltAccess(true);
+          setupMobileControls();
+        },
+        { once: true }
+      );
+    } else {
+      window.addEventListener('touchstart', () => setupMobileControls(), { once: true });
     }
 
     function toggleFullscreen() {
@@ -498,11 +611,13 @@ function init() {
   // Scene setup
   scene = new THREE.Scene();
   scene.background = new THREE.Color(0xa0d8f0);
-  scene.fog = new THREE.FogExp2(0xb0c4de, 0.02);
+  // Lighten the fog so the arena remains visible from a higher vantage point
+  scene.fog = new THREE.FogExp2(0xb0c4de, 0.008);
 
   camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
   camera.add(listener);
-  camera.position.set(0, 100, 20);
+  // Keep the camera closer to the action so the arena isn't lost in the fog
+  camera.position.set(0, 45, 55);
   camera.lookAt(0, 0, 0);
 
   renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -548,33 +663,8 @@ controls.addEventListener( 'change', () => {
   directionalLight.shadow.camera.top = 50;
   directionalLight.shadow.camera.bottom = -50;
   scene.add(directionalLight);
-  
-  // Water
-const waterNormals = new THREE.TextureLoader().load(
-  'https://threejs.org/examples/textures/waternormals.jpg',
-  texture => {
-    texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
-  }
-);
 
-const waterGeometry = new THREE.PlaneGeometry(30*arenaScaling, 30*arenaScaling);
-
-water = new Water(waterGeometry, {
-  textureWidth: 1024,
-  textureHeight: 1024,
-  waterNormals: waterNormals,
-  sunDirection: directionalLight.position.clone().normalize(),
-  sunColor: 0xffffff,
-  waterColor: 0x1e90ff,
-  distortionScale: 4,
-  fog: scene.fog !== undefined
-});
-
-water.rotation.x = -Math.PI / 2;
-water.position.y = -0.05;
-
-scene.add(water);
-setWaterVisible(true);
+  createWaterSurface(!!WaterClass);
 //--------------------------------------------------------------------
 // FOAM / Gischt an Mauerkanten --------------------------------------
 //--------------------------------------------------------------------
@@ -2114,7 +2204,9 @@ scene.add(fillerPanels);
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  startGame();
+  startGame().catch((err) => {
+    console.error('Failed to start game', err);
+  });
 });
 
 
@@ -2474,7 +2566,7 @@ dot.style.transform = `translate(-50%, -50%) translate(${tiltForce.x * maxOffset
       updateCPU();
       world.step(1 / 60);
       updateHealthStates();
-      if (waterEnabled && water) {
+      if (waterEnabled && waterHasTimeUniform) {
         water.material.uniforms['time'].value += 1.0 / 60.0;
       }
 

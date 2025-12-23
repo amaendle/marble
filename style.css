@@ -27,6 +27,12 @@ canvas { display: block; }
   pointer-events: none;
 }
 
+#scoreboard .scoreboard-subtext {
+  margin-top: 4px;
+  font-size: 12px;
+  opacity: 0.85;
+}
+
 #kill-feed {
   max-height: 100px;
   overflow-y: auto;

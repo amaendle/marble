@@ -55,6 +55,10 @@ const DEBUG_MODE = true;
 let wireframeToggleButton = null;
 let waterToggleButton = null;
 let preDebuggerObjects;
+let fpsValueElement = null;
+let lastFrameTime = performance.now();
+let smoothedFps = 0;
+let fpsFrameCounter = 0;
 
 function refreshCannonDebugObjects() {
   if (!scene || !preDebuggerObjects) return;
@@ -465,11 +469,13 @@ function init_powerups() {
   scene.userData.powerups = [shieldPickup];
 }
 
-function init() {  
+function init() {
   // Scene setup
   scene = new THREE.Scene();
   scene.background = new THREE.Color(0xa0d8f0);
   scene.fog = new THREE.FogExp2(0xb0c4de, 0.02);
+
+  fpsValueElement = document.getElementById('fps-value');
 
   camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
   camera.add(listener);
@@ -2383,7 +2389,18 @@ function showMatchSummary() {
   });
 }
 
-function animate() {
+function animate(time) {
+  const now = typeof time === 'number' ? time : performance.now();
+  const delta = now - lastFrameTime;
+  if (delta > 0) {
+    const instantaneousFps = 1000 / delta;
+    smoothedFps = smoothedFps === 0 ? instantaneousFps : smoothedFps * 0.9 + instantaneousFps * 0.1;
+    if (fpsValueElement && fpsFrameCounter++ % 15 === 0) {
+      fpsValueElement.textContent = `${Math.round(smoothedFps)}`;
+    }
+  }
+  lastFrameTime = now;
+
   if (isMobileDevice()) {
     const indicator = document.getElementById('tilt-indicator');
     const dot = document.getElementById('tilt-dot');

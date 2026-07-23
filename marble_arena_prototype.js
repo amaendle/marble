@@ -24,13 +24,15 @@ audioLoader.load('https://upload.wikimedia.org/wikipedia/commons/9/96/Mendelssoh
     let marble, marbleBody, world;
     let cpuMarbles = [], cpuBodies = [];
 	const cpuColors = [0x3333ff, 0x33ff33, 0xffff33];
-    const cpuBehaviors = ['aggressive','evasive','chaotic']; //['idle','idle', 'chaotic'];//
+    const cpuBehaviorModes = ['aggressive', 'evasive', 'chaotic', 'inactive'];
+    const cpuBehaviors = ['aggressive', 'evasive', 'chaotic'];
     let groundBody;
     let keys = {};
     let marbleLives = 0;
     let cpuLives = [0, 0, 0];
     let maxlives = 3;
-    let health = { player: 100, cpu: [100, 100, 100] };
+    const MAX_HEALTH = 100;
+    let health = { player: MAX_HEALTH, cpu: [MAX_HEALTH, MAX_HEALTH, MAX_HEALTH] };
     const ENABLE_KNOCKBACK = true;
     let playerJumpCooldown = 0;
     const cpuJumpCooldown = [0, 0, 0];
@@ -2052,7 +2054,7 @@ scene.add(fillerPanels);
     const labelDiv = document.createElement('div');
     labelDiv.innerHTML = `<div style='display: flex; align-items: center; gap: 4px;'>
           <div style='width: 10px; height: 10px; border-radius: 50%; background-color: #${cpuColors[i].toString(16).padStart(6, '0')};'></div>
-          <span>${cpuBehaviors[i]}</span>
+          <span class='cpu-behavior-text'>${cpuBehaviors[i]}</span>
         </div>
         <div class='health-bar' style='width: 40px; height: 5px; background: #222; margin-top: 2px;'>
           <div id='cpu-health-${i}' style='width: 100%; height: 100%; background: #f00;'></div>
@@ -2081,6 +2083,15 @@ scene.add(fillerPanels);
 
   window.addEventListener('resize', onWindowResize);
   window.addEventListener('keydown', (e) => {
+    const cpuIndex = Number.parseInt(e.key, 10) - 1;
+    if (!e.repeat && cpuIndex >= 0 && cpuIndex < cpuBehaviors.length) {
+      cycleCPUBehavior(cpuIndex);
+      return;
+    }
+    if ((e.key === 'h' || e.key === 'H') && !e.repeat) {
+      refillPlayerHealth();
+      return;
+    }
     if ((e.key === 'w' || e.key === 'W') && !e.repeat) {
       setWireframeMode(!wireframeEnabled);
       return;
@@ -2091,6 +2102,43 @@ scene.add(fillerPanels);
 }
 
 
+
+
+function updateCPUBehaviorLabel(index) {
+  const cpu = cpuMarbles[index];
+  const label = cpu?.userData.label;
+  const behaviorText = label?.querySelector('.cpu-behavior-text');
+  if (behaviorText) {
+    behaviorText.textContent = cpuBehaviors[index];
+  }
+  if (cpu) {
+    cpu.userData.behavior = cpuBehaviors[index];
+  }
+}
+
+function cycleCPUBehavior(index) {
+  const currentModeIndex = cpuBehaviorModes.indexOf(cpuBehaviors[index]);
+  const nextModeIndex = (currentModeIndex + 1) % cpuBehaviorModes.length;
+  cpuBehaviors[index] = cpuBehaviorModes[nextModeIndex];
+  updateCPUBehaviorLabel(index);
+  addKillFeedMessage(`CPU ${index + 1} behavior: ${cpuBehaviors[index]}`);
+}
+
+function refillPlayerHealth() {
+  health.player = MAX_HEALTH;
+  const playerHealthBar = document.getElementById('player-health-bar');
+  if (playerHealthBar) {
+    playerHealthBar.style.width = '100%';
+  }
+  const hud = document.getElementById('hud');
+  if (hud) {
+    hud.classList.remove('low-health');
+  }
+  marble.userData.suddenDeath = false;
+  marble.material.color.set(0xff3333);
+  marble.material.emissive.set(0x000000);
+  addKillFeedMessage('Player health refilled!');
+}
 
 function setupCollisionDetection() {
   world.addEventListener('postStep', () => {
@@ -2218,10 +2266,10 @@ function addKillFeedMessage(msg) {
   
   if (isPlayer) {
     marbleLives++;
-    health.player = 100;
+    health.player = MAX_HEALTH;
     document.getElementById('player-health-bar').style.width = '100%';
   } else {
-    health.cpu[index] = 100;
+    health.cpu[index] = MAX_HEALTH;
     cpuLives[index]++;
   }
   
@@ -2307,7 +2355,7 @@ function addKillFeedMessage(msg) {
       addKillFeedMessage(`Player died! Lives lost: ${marbleLives}`);
       if (marbleLives < maxlives) {
         respawn(marbleBody);
-        health.player = 100;
+        health.player = MAX_HEALTH;
         document.getElementById('player-health-bar').style.width = '100%';
       }
     } else if (health.player <= 10) {
@@ -2326,7 +2374,7 @@ function addKillFeedMessage(msg) {
         const z = Math.random() * 20 - 10;
         if (cpuLives[i] < maxlives) {
           respawn(body, x, z);
-          health.cpu[i] = 100;
+          health.cpu[i] = MAX_HEALTH;
         }
       } else if (health.cpu[i] <= 10) {
         triggerSuddenDeath(cpuMarbles[i], cpuBodies[i], false, i);
@@ -2339,7 +2387,7 @@ function restartGame() {
   matchOver = false;
   marbleLives = 0;
   cpuLives = [0, 0, 0];
-  health = { player: 100, cpu: [100, 100, 100] };
+  health = { player: MAX_HEALTH, cpu: [MAX_HEALTH, MAX_HEALTH, MAX_HEALTH] };
 
   // Reset marble positions
   respawn(marbleBody);
@@ -2770,6 +2818,9 @@ dot.style.transform = `translate(-50%, -50%) translate(${tiltForce.x * maxOffset
 
         // Behavior type
         const behavior = cpuBehaviors[i]; 
+        if (behavior === 'inactive') {
+          return;
+        }
         let fx = 0, fz = 0;
         const arenaRadius = 28;
         const edgeMargin = 3;
